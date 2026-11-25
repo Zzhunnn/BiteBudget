@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiteBudget — 外食族營養與餐費預算雷達</title>
+
+  <!-- 防止深色模式載入時閃白畫面 (FOUC) -->
+  <script>
+    if (
+      localStorage.getItem('bitebudget_theme') === 'dark' ||
+      (!('bitebudget_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
+
+  <!-- Tailwind CSS CDN & 啟用 class 切換深色模式 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans TC"', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200 min-h-screen">
+
+  <!-- 頂部導覽列 -->
+  <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+          B
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight tracking-tight">BiteBudget</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">外食族營養與餐費預算雷達</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span id="current-date" class="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"></span>
+
+        <!-- 目標設定按鈕 -->
+        <button id="open-settings-btn" type="button"
+          class="px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          目標設定
+        </button>
+
+        <!-- 淺深色一鍵切換 -->
+        <button id="theme-toggle" type="button" aria-label="切換淺色或深色模式"
+          class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <!-- 太陽圖示 (深色模式時顯示) -->
+          <svg id="icon-sun" class="w-4 h-4 hidden text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"></path>
+          </svg>
+          <!-- 月亮圖示 (淺色模式時顯示) -->
+          <svg id="icon-moon" class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- 區塊 1：雙軌預算與營養儀表板 -->
+    <section aria-label="今日預算與營養進度">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <h2 class="text-base font-bold">今日雷達總覽</h2>
+        <p id="radar-status-text" class="text-xs sm:text-sm text-slate-600 dark:text-slate-300"></p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 餐費預算卡片 -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">今日餐費預算</span>
+            <span id="budget-badge" class="status-badge">正常</span>
+          </div>
+          <div class="flex items-baseline gap-1.5 mb-1">
+            <span id="budget-used" class="text-2xl font-bold">$0</span>
+            <span class="text-sm text-slate-400">/ $<span id="budget-goal">300</span></span>
+          </div>
+          <p id="budget-remaining" class="text-xs text-slate-500 dark:text-slate-400 mb-3">剩餘 $300</p>
+          <div class="progress-track">
+            <div id="budget-bar" class="progress-fill bg-emerald-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 蛋白質進度卡片 -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">蛋白質攝取</span>
+            <span id="protein-badge" class="status-badge">待補充</span>
+          </div>
+          <div class="flex items-baseline gap-1.5 mb-1">
+            <span id="protein-used" class="text-2xl font-bold">0g</span>
+            <span class="text-sm text-slate-400">/ <span id="protein-goal">100</span>g</span>
+          </div>
+          <p id="protein-gap" class="text-xs text-slate-500 dark:text-slate-400 mb-3">尚缺 100g</p>
+          <div class="progress-track">
+            <div id="protein-bar" class="progress-fill bg-amber-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 熱量進度卡片 -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">熱量攝取</span>
+            <span id="calories-badge" class="status-badge">適中</span>
+          </div>
+          <div class="flex items-baseline gap-1.5 mb-1">
+            <span id="calories-used" class="text-2xl font-bold">0</span>
+            <span class="text-sm text-slate-400">/ <span id="calories-goal">2000</span> kcal</span>
+          </div>
+          <p id="calories-gap" class="text-xs text-slate-500 dark:text-slate-400 mb-3">尚可攝取 2000 kcal</p>
+          <div class="progress-track">
+            <div id="calories-bar" class="progress-fill bg-sky-500" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 區塊 2：AI 語意紀錄 + 剩餘額度智慧推薦 -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- 左側：AI 自然語言輸入 & 手動自訂 -->
+      <div class="lg:col-span-6 space-y-4">
+        <div class="card space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold">AI 語意快速記餐</h2>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              Phase 1 離線備援解析
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            直接輸入吃了什麼，例如：「無糖豆漿加兩顆茶葉蛋」、「舒肥雞胸肉配烤地瓜」。Phase 2 接入 Gemini API 後將支援任意外食估算。
+          </p>
+          <form id="ai-form" class="flex gap-2">
+            <input id="ai-input" type="text" required placeholder="輸入餐點，例如：無糖豆漿加2顆茶葉蛋"
+              class="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <button id="ai-submit-btn" type="submit"
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition shrink-0">
+              解析加入
+            </button>
+          </form>
+          <div id="ai-feedback" class="text-xs hidden rounded-lg p-2.5"></div>
+        </div>
+
+        <!-- 手動自訂餐點 -->
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between text-sm font-bold">
+            <span>＋ 手動自訂餐點（清單沒有的外食）</span>
+            <span class="text-xs text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <form id="manual-form" class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <input id="manual-name" type="text" required placeholder="餐點名稱（如：控肉飯）"
+              class="col-span-2 sm:col-span-4 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <input id="manual-price" type="number" min="0" required placeholder="花費 ($)"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <input id="manual-calories" type="number" min="0" required placeholder="熱量 (kcal)"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <input id="manual-protein" type="number" min="0" step="0.1" required placeholder="蛋白質 (g)"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <button type="submit"
+              class="px-3 py-2 text-sm font-medium rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 hover:opacity-90 transition">
+              加入紀錄
+            </button>
+          </form>
+        </details>
+      </div>
+
+      <!-- 右側：剩餘額度智慧推薦 -->
+      <div class="lg:col-span-6 card flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <h2 class="text-base font-bold">剩餘額度智慧推薦</h2>
+            <button id="refresh-recommend-btn" type="button"
+              class="text-xs px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              重新篩選
+            </button>
+          </div>
+          <p id="recommend-summary" class="text-xs text-slate-500 dark:text-slate-400 mb-3"></p>
+          <div id="recommend-list" class="space-y-2.5"></div>
+        </div>
+        <p class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+          推薦引擎：規則式高 CP 值配對（Fallback 機制，無須聯網即可運作）
+        </p>
+      </div>
+    </section>
+
+    <!-- 區塊 3：台灣常見外食快速點選 -->
+    <section class="card space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold">台灣外食快速點選</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">點一下即可加入今日紀錄，內建常見超商、便當與麵食資料</p>
+        </div>
+        <input id="food-search" type="search" placeholder="搜尋餐點或標籤（如：高蛋白、雞胸）..."
+          class="w-full sm:w-64 px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+      </div>
+
+      <!-- 分類篩選頁籤 -->
+      <div id="category-tabs" class="flex flex-wrap gap-2"></div>
+
+      <!-- 餐點卡片網格 -->
+      <div id="food-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+    </section>
+
+    <!-- 區塊 4：今日飲食紀錄清單 -->
+    <section class="card space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h2 class="text-base font-bold">今日飲食消費紀錄</h2>
+          <span id="log-count" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">0 筆</span>
+        </div>
+        <button id="clear-logs-btn" type="button"
+          class="text-xs text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium">
+          清空今日紀錄
+        </button>
+      </div>
+      <div id="log-list" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    </section>
+  </main>
+
+  <!-- 目標設定 Modal -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+    <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 shadow-xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold">每日預算與營養目標</h3>
+        <button id="close-settings-btn" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg">&times;</button>
+      </div>
+      <form id="settings-form" class="space-y-3.5">
+        <div>
+          <label for="input-budget-goal" class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">每日餐費上限（新台幣 $）</label>
+          <input id="input-budget-goal" type="number" min="50" required
+            class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950" />
+        </div>
+        <div>
+          <label for="input-protein-goal" class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">每日蛋白質目標（克 g）</label>
+          <input id="input-protein-goal" type="number" min="20" required
+            class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950" />
+        </div>
+        <div>
+          <label for="input-calories-goal" class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">每日熱量上限（大卡 kcal）</label>
+          <input id="input-calories-goal" type="number" min="800" required
+            class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition">
+            儲存設定
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast 提示容器 -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
