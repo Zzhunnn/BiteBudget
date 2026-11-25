@@ -1,4 +1,5 @@
 // api/parse-meal.js — Vercel Serverless Function (Gemini 餐點記帳與營養解析代理)
+const { callGeminiWithRetry } = require('../lib/gemini');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,15 +15,8 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
     const text = String(body.text || '').trim();
 
-    if (!text) {
-      return res.status(400).json({ error: '請輸入餐點描述' });
-    }
-    if (text.length > 200) {
-      return res.status(400).json({ error: '輸入文字請控制在 200 字以內' });
-    }
-
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    if (!text) return res.status(400).json({ error: '請輸入餐點描述' });
+    if (text.length > 200) return res.status(400).json({ error: '輸入文字請控制在 200 字以內' });
 
     const systemInstruction = `你是專精於「台灣外食記帳與營養估算」的資料解析器。
 任務：將使用者輸入的一句話餐點描述，拆解為結構化記帳清單，估算台灣一般外食／超商／小吃店的合理花費（新台幣整數）、熱量（大卡整數）與蛋白質（公克，最多一位小數）。
@@ -34,13 +28,11 @@ module.exports = async function handler(req, res) {
 4. 若輸入明顯不是食物或無法辨識（例如亂碼），items 回傳空陣列，並在 note 說明原因。
 5. note 用 1 句繁體中文簡要總結估算依據與 CP 值觀察（35 字內）。`;
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
+    const result = await callGeminiWithRetry({
+      apiKey,
+      primaryModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+      fallbackModel: process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.8-flash',
+      payload: {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text }] }],
         generationConfig: {
@@ -67,20 +59,15 @@ module.exports = async function handler(req, res) {
             required: ['items', 'note'],
           },
         },
-      }),
+      },
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini API error:', response.status, errText);
-      return res.status(502).json({ error: `Gemini API 呼叫失敗 (${response.status})` });
+    if (!result.ok) {
+      return res.status(502).json({ error: `Gemini API 呼叫失敗 (${result.status})` });
     }
 
-    const data = await response.json();
-    const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawJson) {
-      return res.status(502).json({ error: 'AI 回傳內容為空' });
-    }
+    const rawJson = result.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawJson) return res.status(502).json({ error: 'AI 回傳內容為空' });
 
     const parsed = JSON.parse(rawJson);
     const sanitizedItems = (Array.isArray(parsed.items) ? parsed.items : [])
@@ -95,7 +82,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       items: sanitizedItems,
       note: String(parsed.note || '已完成台灣外食記帳與營養估算').slice(0, 120),
-      model,
+      model: result.model,
     });
   } catch (err) {
     console.error('parse-meal handler error:', err);
