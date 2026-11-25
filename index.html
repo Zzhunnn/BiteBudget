@@ -49,28 +49,24 @@
         </div>
         <div>
           <h1 class="text-lg font-bold leading-tight tracking-tight">BiteBudget</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400">外食族營養與餐費預算雷達</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">外食族 AI 飲食記帳 × 省錢補蛋白雷達</p>
         </div>
       </div>
 
       <div class="flex items-center gap-2">
         <span id="current-date" class="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"></span>
 
-        <!-- 目標設定按鈕 -->
         <button id="open-settings-btn" type="button"
           class="px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           目標設定
         </button>
 
-        <!-- 淺深色一鍵切換 -->
         <button id="theme-toggle" type="button" aria-label="切換淺色或深色模式"
           class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <!-- 太陽圖示 (深色模式時顯示) -->
           <svg id="icon-sun" class="w-4 h-4 hidden text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="4"></circle>
             <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"></path>
           </svg>
-          <!-- 月亮圖示 (淺色模式時顯示) -->
           <svg id="icon-moon" class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
           </svg>
@@ -84,7 +80,12 @@
     <!-- 區塊 1：雙軌預算與營養儀表板 -->
     <section aria-label="今日預算與營養進度">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-        <h2 class="text-base font-bold">今日雷達總覽</h2>
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="text-base font-bold">今日雷達總覽</h2>
+          <span id="radar-cp-badge" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            今日蛋白成本：尚無紀錄
+          </span>
+        </div>
         <p id="radar-status-text" class="text-xs sm:text-sm text-slate-600 dark:text-slate-300"></p>
       </div>
 
@@ -93,13 +94,13 @@
         <div class="card">
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm font-medium text-slate-500 dark:text-slate-400">今日餐費預算</span>
-            <span id="budget-badge" class="status-badge">正常</span>
+            <span id="budget-badge" class="status-badge">控管良好</span>
           </div>
           <div class="flex items-baseline gap-1.5 mb-1">
             <span id="budget-used" class="text-2xl font-bold">$0</span>
             <span class="text-sm text-slate-400">/ $<span id="budget-goal">300</span></span>
           </div>
-          <p id="budget-remaining" class="text-xs text-slate-500 dark:text-slate-400 mb-3">剩餘 $300</p>
+          <p id="budget-remaining" class="text-xs text-slate-500 dark:text-slate-400 mb-3">今日剩餘 $300</p>
           <div class="progress-track">
             <div id="budget-bar" class="progress-fill bg-emerald-500" style="width: 0%"></div>
           </div>
@@ -115,7 +116,7 @@
             <span id="protein-used" class="text-2xl font-bold">0g</span>
             <span class="text-sm text-slate-400">/ <span id="protein-goal">100</span>g</span>
           </div>
-          <p id="protein-gap" class="text-xs text-slate-500 dark:text-slate-400 mb-3">尚缺 100g</p>
+          <p id="protein-gap" class="text-xs text-slate-500 dark:text-slate-400 mb-3">距離目標尚缺 100g</p>
           <div class="progress-track">
             <div id="protein-bar" class="progress-fill bg-amber-500" style="width: 0%"></div>
           </div>
@@ -125,7 +126,7 @@
         <div class="card">
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm font-medium text-slate-500 dark:text-slate-400">熱量攝取</span>
-            <span id="calories-badge" class="status-badge">適中</span>
+            <span id="calories-badge" class="status-badge">範圍內</span>
           </div>
           <div class="flex items-baseline gap-1.5 mb-1">
             <span id="calories-used" class="text-2xl font-bold">0</span>
@@ -139,26 +140,26 @@
       </div>
     </section>
 
-    <!-- 區塊 2：AI 語意紀錄 + 剩餘額度智慧推薦 -->
+    <!-- 區塊 2：AI 一句話記帳＋營養解析 + 剩餘預算高 CP 值推薦 -->
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
       <!-- 左側：AI 自然語言輸入 & 手動自訂 -->
       <div class="lg:col-span-6 space-y-4">
         <div class="card space-y-3">
-          <div class="flex items-center justify-between">
-            <h2 class="text-base font-bold">AI 語意快速記餐</h2>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-              Phase 1 離線備援解析
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-base font-bold">一句話同步記帳＋算營養</h2>
+            <span id="ai-mode-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              Gemini AI 連線就緒
             </span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400">
-            直接輸入吃了什麼，例如：「無糖豆漿加兩顆茶葉蛋」、「舒肥雞胸肉配烤地瓜」。Phase 2 接入 Gemini API 後將支援任意外食估算。
+            支援任意台灣外食與自填金額，例如：「滷雞腿便當115元配無糖豆漿」、「麻醬麵加貢丸湯和一顆滷蛋」。若 API 限流將自動降級為離線備援解析。
           </p>
           <form id="ai-form" class="flex gap-2">
-            <input id="ai-input" type="text" required placeholder="輸入餐點，例如：無糖豆漿加2顆茶葉蛋"
+            <input id="ai-input" type="text" required placeholder="例：滷雞腿便當115元配無糖豆漿"
               class="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             <button id="ai-submit-btn" type="submit"
-              class="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition shrink-0">
-              解析加入
+              class="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-white transition shrink-0">
+              AI 解析
             </button>
           </form>
           <div id="ai-feedback" class="text-xs hidden rounded-lg p-2.5"></div>
@@ -191,30 +192,45 @@
       <div class="lg:col-span-6 card flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between gap-2 mb-1">
-            <h2 class="text-base font-bold">剩餘額度智慧推薦</h2>
-            <button id="refresh-recommend-btn" type="button"
-              class="text-xs px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              重新篩選
-            </button>
+            <h2 class="text-base font-bold">剩餘預算高 CP 值推薦</h2>
+            <div class="flex items-center gap-1.5">
+              <button id="ai-recommend-btn" type="button"
+                class="text-xs px-2.5 py-1 rounded-md bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white font-medium transition">
+                ✨ AI 推薦
+              </button>
+              <button id="refresh-recommend-btn" type="button"
+                class="text-xs px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                規則重算
+              </button>
+            </div>
           </div>
           <p id="recommend-summary" class="text-xs text-slate-500 dark:text-slate-400 mb-3"></p>
           <div id="recommend-list" class="space-y-2.5"></div>
         </div>
-        <p class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
-          推薦引擎：規則式高 CP 值配對（Fallback 機制，無須聯網即可運作）
+        <p id="recommend-engine-note" class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+          目前引擎：規則式高 CP 值配對（即時離線運作，可點上方「✨ AI 推薦」請 Gemini 生成客製搭配）
         </p>
       </div>
     </section>
 
-    <!-- 區塊 3：台灣常見外食快速點選 -->
+    <!-- 區塊 3：台灣常見外食快速點選（含蛋白質 CP 值排序與每克成本標示） -->
     <section class="card space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
-          <h2 class="text-base font-bold">台灣外食快速點選</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400">點一下即可加入今日紀錄，內建常見超商、便當與麵食資料</p>
+          <h2 class="text-base font-bold">台灣外食快速點選與 CP 值比價</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">每項皆自動換算「每克蛋白質成本（$/g）」，每克低於 $2.5 標記為省錢蛋白王</p>
         </div>
-        <input id="food-search" type="search" placeholder="搜尋餐點或標籤（如：高蛋白、雞胸）..."
-          class="w-full sm:w-64 px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        <div class="flex flex-col sm:flex-row gap-2">
+          <select id="food-sort" aria-label="排序方式"
+            class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="default">排序：預設分類</option>
+            <option value="cp">🔥 蛋白質 CP 值最高（$/g 最低）</option>
+            <option value="price-asc">💰 價格由低到高</option>
+            <option value="protein-desc">💪 蛋白質含量由高到低</option>
+          </select>
+          <input id="food-search" type="search" placeholder="搜尋餐點或標籤（如：高蛋白、雞胸）..."
+            class="w-full sm:w-60 px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
       </div>
 
       <!-- 分類篩選頁籤 -->
