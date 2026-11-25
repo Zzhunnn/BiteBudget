@@ -1,0 +1,182 @@
+[
+  {
+    "id": "cvs-01",
+    "name": "超商茶葉蛋（1顆）",
+    "category": "超商",
+    "price": 13,
+    "calories": 75,
+    "protein": 7,
+    "tags": ["高CP值", "低熱量", "高蛋白"]
+  },
+  {
+    "id": "cvs-02",
+    "name": "無糖高蛋白豆漿（450ml）",
+    "category": "飲品點心",
+    "price": 35,
+    "calories": 195,
+    "protein": 20,
+    "tags": ["高CP值", "高蛋白", "無糖"]
+  },
+  {
+    "id": "cvs-03",
+    "name": "超商舒肥雞胸肉",
+    "category": "超商",
+    "price": 59,
+    "calories": 130,
+    "protein": 24,
+    "tags": ["高蛋白", "低脂", "減脂"]
+  },
+  {
+    "id": "cvs-04",
+    "name": "鮪魚御飯糰",
+    "category": "超商",
+    "price": 36,
+    "calories": 215,
+    "protein": 6,
+    "tags": ["平價", "快速"]
+  },
+  {
+    "id": "cvs-05",
+    "name": "烤雞三明治",
+    "category": "超商",
+    "price": 49,
+    "calories": 260,
+    "protein": 13,
+    "tags": ["早餐", "均衡"]
+  },
+  {
+    "id": "cvs-06",
+    "name": "超商烤地瓜（中）",
+    "category": "超商",
+    "price": 35,
+    "calories": 180,
+    "protein": 2,
+    "tags": ["優質澱粉", "平價"]
+  },
+  {
+    "id": "cvs-07",
+    "name": "無糖希臘優格（小杯）",
+    "category": "飲品點心",
+    "price": 45,
+    "calories": 110,
+    "protein": 11,
+    "tags": ["高蛋白", "點心"]
+  },
+  {
+    "id": "cvs-08",
+    "name": "超商義式烤雞義大利麵",
+    "category": "超商",
+    "price": 89,
+    "calories": 540,
+    "protein": 26,
+    "tags": ["正餐", "高蛋白"]
+  },
+  {
+    "id": "bento-01",
+    "name": "舒肥雞胸健康餐盒",
+    "category": "便當健康餐",
+    "price": 135,
+    "calories": 520,
+    "protein": 38,
+    "tags": ["高蛋白", "均衡", "低油"]
+  },
+  {
+    "id": "bento-02",
+    "name": "滷雞腿便當",
+    "category": "便當健康餐",
+    "price": 115,
+    "calories": 760,
+    "protein": 32,
+    "tags": ["飽足感", "正餐"]
+  },
+  {
+    "id": "bento-03",
+    "name": "炸排骨便當",
+    "category": "便當健康餐",
+    "price": 110,
+    "calories": 850,
+    "protein": 29,
+    "tags": ["高熱量", "飽足感"]
+  },
+  {
+    "id": "bento-04",
+    "name": "自助餐（白飯＋三菜＋去皮白斬雞）",
+    "category": "便當健康餐",
+    "price": 105,
+    "calories": 610,
+    "protein": 30,
+    "tags": ["均衡", "高CP值"]
+  },
+  {
+    "id": "bento-05",
+    "name": "鯖魚健康餐盒",
+    "category": "便當健康餐",
+    "price": 145,
+    "calories": 590,
+    "protein": 34,
+    "tags": ["優質油脂", "高蛋白"]
+  },
+  {
+    "id": "noodle-01",
+    "name": "清燉牛肉麵（小）",
+    "category": "麵食小吃",
+    "price": 160,
+    "calories": 620,
+    "protein": 35,
+    "tags": ["高蛋白", "熱湯"]
+  },
+  {
+    "id": "noodle-02",
+    "name": "陽春乾麵（小）",
+    "category": "麵食小吃",
+    "price": 45,
+    "calories": 380,
+    "protein": 11,
+    "tags": ["平價", "銅板價"]
+  },
+  {
+    "id": "noodle-03",
+    "name": "黑白切嘴邊肉（份）",
+    "category": "麵食小吃",
+    "price": 60,
+    "calories": 180,
+    "protein": 21,
+    "tags": ["高蛋白", "小吃加點"]
+  },
+  {
+    "id": "noodle-04",
+    "name": "燙青菜（少油）",
+    "category": "麵食小吃",
+    "price": 40,
+    "calories": 70,
+    "protein": 3,
+    "tags": ["膳食纖維", "低熱量"]
+  },
+  {
+    "id": "noodle-05",
+    "name": "滷豆腐＋海帶＋滷蛋",
+    "category": "麵食小吃",
+    "price": 45,
+    "calories": 190,
+    "protein": 15,
+    "tags": ["高CP值", "小吃加點"]
+  },
+  {
+    "id": "noodle-06",
+    "name": "高麗菜水餃（10顆）",
+    "category": "麵食小吃",
+    "price": 70,
+    "calories": 520,
+    "protein": 18,
+    "tags": ["平價", "飽足感"]
+  },
+  {
+    "id": "drink-01",
+    "name": "超商蛋白飲（巧克力／原味）",
+    "category": "飲品點心",
+    "price": 49,
+    "calories": 180,
+    "protein": 20,
+    "tags": ["高蛋白", "快速補給"]
+  }
+]
