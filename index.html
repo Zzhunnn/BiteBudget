@@ -40,25 +40,47 @@
 
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200 min-h-screen">
 
-  <!-- 頂部導覽列 -->
+<!-- 頂部導覽列 -->
   <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold text-lg shadow-sm shrink-0">
           B
         </div>
-        <div>
+        <div class="min-w-0">
           <h1 class="text-lg font-bold leading-tight tracking-tight">BiteBudget</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400">外食族 AI 飲食記帳 × 省錢補蛋白雷達</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 truncate hidden sm:block">外食族 AI 飲食記帳 × 省錢補蛋白雷達</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <span id="current-date" class="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"></span>
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <span id="current-date" class="hidden lg:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"></span>
+
+        <!-- 雲端同步狀態指示 -->
+        <span id="sync-status" class="hidden sm:inline-flex items-center text-[11px] font-medium px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+          本機暫存
+        </span>
+
+        <!-- Google 登入按鈕（未登入顯示） -->
+        <button id="auth-login-btn" type="button"
+          class="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition">
+          Google 登入
+        </button>
+
+        <!-- 使用者資訊與登出（登入後顯示） -->
+        <div id="auth-user-area" class="hidden items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70">
+          <img id="user-avatar" src="" alt="使用者頭像" referrerpolicy="no-referrer"
+            class="w-6 h-6 rounded-full object-cover bg-emerald-500" />
+          <span id="user-name" class="hidden md:inline text-xs font-medium max-w-[90px] truncate"></span>
+          <button id="auth-logout-btn" type="button"
+            class="text-[11px] text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium px-1">
+            登出
+          </button>
+        </div>
 
         <button id="open-settings-btn" type="button"
-          class="px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          目標設定
+          class="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          目標
         </button>
 
         <button id="theme-toggle" type="button" aria-label="切換淺色或深色模式"

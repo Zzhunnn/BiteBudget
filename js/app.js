@@ -1,4 +1,13 @@
 import { getRuleRecommendations } from './recommender.js';
+import {
+  isFirebaseConfigured,
+  initAuthListener,
+  loginWithGoogle,
+  logoutUser,
+  loadUserCloudData,
+  saveUserGoalsCloud,
+  saveDayLogsCloud,
+} from './firebase.js';
 
 const STORAGE_KEYS = {
   THEME: 'bitebudget_theme',
@@ -14,6 +23,7 @@ const DEFAULT_GOALS = {
 
 // 全域狀態
 let foodDatabase = [];
+let currentUser = null;
 let goals = loadJSON(STORAGE_KEYS.GOALS, DEFAULT_GOALS);
 let logsByDate = loadJSON(STORAGE_KEYS.LOGS, {});
 let activeCategory = '全部';
@@ -56,7 +66,6 @@ function getTodayLogs() {
   return logsByDate[key];
 }
 
-// 計算每克蛋白質成本（新台幣 / g），越低代表 CP 值越高
 function getCostPerProtein(price, protein) {
   if (!protein || protein <= 0) return Infinity;
   return price / protein;
@@ -66,6 +75,172 @@ function formatCostPerProtein(price, protein) {
   const cp = getCostPerProtein(price, protein);
   if (!Number.isFinite(cp)) return '無蛋白參考';
   return `$${cp.toFixed(1)}/g蛋白`;
+}
+
+// ---------- 同步狀態標籤 ----------
+function setSyncStatus(mode, text) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  const styles = {
+    local: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+    syncing: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300',
+    synced: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
+    error: 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300',
+  };
+  el.className = `hidden sm:inline-flex items-center text-[11px] font-medium px-2 py-1 rounded-full ${styles[mode] || styles.local}`;
+  el.textContent = text;
+}
+
+// ---------- Firebase 雲端存取與訪客資料合併 ----------
+function updateAuthUI(user) {
+  const loginBtn = document.getElementById('auth-login-btn');
+  const userArea = document.getElementById('auth-user-area');
+  const avatarEl = document.getElementById('user-avatar');
+  const nameEl = document.getElementById('user-name');
+
+  if (user) {
+    loginBtn.classList.add('hidden');
+    userArea.classList.remove('hidden');
+    userArea.classList.add('flex');
+    avatarEl.src =
+      user.photoURL ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'U')}&background=10b981&color=fff`;
+    nameEl.textContent = user.displayName || user.email || '會員';
+  } else {
+    loginBtn.classList.remove('hidden');
+    userArea.classList.add('hidden');
+    userArea.classList.remove('flex');
+  }
+}
+
+async function syncDayLogs(dateKey) {
+  if (!currentUser) {
+    saveJSON(STORAGE_KEYS.LOGS, logsByDate);
+    setSyncStatus('local', '本機暫存');
+    return;
+  }
+
+  setSyncStatus('syncing', '雲端同步中...');
+  try {
+    await saveDayLogsCloud(currentUser.uid, dateKey, logsByDate[dateKey] || []);
+    setSyncStatus('synced', '☁️ 雲端已同步');
+  } catch (err) {
+    console.error('Firestore 寫入紀錄失敗：', err);
+    setSyncStatus('error', '同步失敗');
+    showToast('雲端同步失敗，請檢查網路或 Firestore 權限規則', 'error');
+  }
+}
+
+async function syncGoals() {
+  if (!currentUser) {
+    saveJSON(STORAGE_KEYS.GOALS, goals);
+    setSyncStatus('local', '本機暫存');
+    return;
+  }
+
+  setSyncStatus('syncing', '雲端同步中...');
+  try {
+    await saveUserGoalsCloud(currentUser.uid, currentUser, goals);
+    setSyncStatus('synced', '☁️ 雲端已同步');
+  } catch (err) {
+    console.error('Firestore 寫入目標失敗：', err);
+    setSyncStatus('error', '同步失敗');
+    showToast('目標同步失敗，請稍後再試', 'error');
+  }
+}
+
+async function handleAuthStateChange(user) {
+  currentUser = user;
+  updateAuthUI(user);
+
+  if (!user) {
+    goals = loadJSON(STORAGE_KEYS.GOALS, DEFAULT_GOALS);
+    logsByDate = loadJSON(STORAGE_KEYS.LOGS, {});
+    setSyncStatus('local', '本機暫存');
+    renderAll();
+    return;
+  }
+
+  setSyncStatus('syncing', '載入雲端資料...');
+  try {
+    const cloudData = await loadUserCloudData(user.uid);
+    const guestLogs = loadJSON(STORAGE_KEYS.LOGS, {});
+    const guestGoals = loadJSON(STORAGE_KEYS.GOALS, null);
+
+    // 1. 目標同步：雲端有就用雲端，雲端空就把訪客目標寫上去
+    if (cloudData?.goals) {
+      goals = { ...DEFAULT_GOALS, ...cloudData.goals };
+    } else {
+      goals = guestGoals ? { ...DEFAULT_GOALS, ...guestGoals } : structuredClone(DEFAULT_GOALS);
+      await saveUserGoalsCloud(user.uid, user, goals);
+    }
+
+    // 2. 紀錄同步：將訪客期間新增的紀錄合併進雲端，完成後清空訪客暫存避免未來重複復活
+    const mergedLogs = { ...(cloudData?.logsByDate || {}) };
+    const datesToUpload = [];
+
+    for (const [dateKey, items] of Object.entries(guestLogs)) {
+      if (!Array.isArray(items) || items.length === 0) continue;
+      const existing = mergedLogs[dateKey] || [];
+      const existingIds = new Set(existing.map((x) => x.id));
+      const newItems = items.filter((x) => !existingIds.has(x.id));
+      if (newItems.length > 0) {
+        mergedLogs[dateKey] = [...newItems, ...existing];
+        datesToUpload.push(dateKey);
+      }
+    }
+
+    for (const dateKey of datesToUpload) {
+      await saveDayLogsCloud(user.uid, dateKey, mergedLogs[dateKey]);
+    }
+    if (Object.keys(guestLogs).length > 0) {
+      localStorage.removeItem(STORAGE_KEYS.LOGS);
+    }
+
+    logsByDate = mergedLogs;
+    setSyncStatus('synced', '☁️ 雲端已同步');
+    renderAll();
+
+    if (datesToUpload.length > 0) {
+      showToast('已登入並將本機紀錄合併至雲端');
+    }
+  } catch (err) {
+    console.error('載入雲端資料失敗：', err);
+    setSyncStatus('error', '雲端連線異常');
+    showToast('無法讀取 Firestore 資料，請確認安全規則是否已發佈', 'error');
+  }
+}
+
+async function handleLoginClick() {
+  if (!isFirebaseConfigured()) {
+    showToast('請先在 js/firebase.js 填入 Firebase 設定值', 'warn');
+    return;
+  }
+
+  const btn = document.getElementById('auth-login-btn');
+  btn.disabled = true;
+  try {
+    const user = await loginWithGoogle();
+    showToast(`歡迎回來，${user.displayName || '會員'}！`);
+  } catch (err) {
+    console.error('Google 登入失敗：', err);
+    if (err.code === 'auth/unauthorized-domain') {
+      showToast('此網域尚未加入 Firebase 授權網域白名單', 'error');
+    } else if (err.code !== 'auth/popup-closed-by-user') {
+      showToast(`登入失敗：${err.code || err.message}`, 'error');
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleLogoutClick() {
+  try {
+    await logoutUser();
+    showToast('已登出，切換回本機暫存模式', 'warn');
+  } catch (err) {
+    console.error('登出失敗：', err);
+  }
 }
 
 // ---------- 淺色／深色模式切換 ----------
@@ -102,7 +277,8 @@ function showToast(message, type = 'success') {
 }
 
 // ---------- 新增與刪除餐點紀錄 ----------
-function addMeal({ name, price, calories, protein, source = '內建清單' }) {
+function addMealsBatch(items) {
+  if (!Array.isArray(items) || items.length === 0) return;
   const todayKey = getTodayKey();
   if (!logsByDate[todayKey]) logsByDate[todayKey] = [];
 
@@ -112,26 +288,33 @@ function addMeal({ name, price, calories, protein, source = '內建清單' }) {
     hour12: false,
   });
 
-  logsByDate[todayKey].unshift({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    name: name.trim(),
-    price: Math.max(0, Number(price) || 0),
-    calories: Math.max(0, Number(calories) || 0),
-    protein: Math.max(0, Math.round((Number(protein) || 0) * 10) / 10),
-    source,
-    time: timeStr,
+  // 反向插入讓第一筆顯示在最上方，同時只寫入雲端一次
+  [...items].reverse().forEach((item) => {
+    logsByDate[todayKey].unshift({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: String(item.name || '未命名餐點').trim(),
+      price: Math.max(0, Number(item.price) || 0),
+      calories: Math.max(0, Number(item.calories) || 0),
+      protein: Math.max(0, Math.round((Number(item.protein) || 0) * 10) / 10),
+      source: item.source || '內建清單',
+      time: timeStr,
+    });
   });
 
-  saveJSON(STORAGE_KEYS.LOGS, logsByDate);
   renderAll();
-  showToast(`已加入：${name}`);
+  syncDayLogs(todayKey);
+  showToast(items.length === 1 ? `已加入：${items[0].name}` : `已加入 ${items.length} 筆餐點紀錄`);
+}
+
+function addMeal(meal) {
+  addMealsBatch([meal]);
 }
 
 function deleteMeal(id) {
   const todayKey = getTodayKey();
   logsByDate[todayKey] = getTodayLogs().filter((item) => item.id !== id);
-  saveJSON(STORAGE_KEYS.LOGS, logsByDate);
   renderAll();
+  syncDayLogs(todayKey);
   showToast('已刪除該筆紀錄', 'warn');
 }
 
@@ -140,9 +323,10 @@ function clearTodayLogs() {
   if (logs.length === 0) return;
   if (!confirm('確定要清空今日所有飲食紀錄嗎？')) return;
 
-  logsByDate[getTodayKey()] = [];
-  saveJSON(STORAGE_KEYS.LOGS, logsByDate);
+  const todayKey = getTodayKey();
+  logsByDate[todayKey] = [];
   renderAll();
+  syncDayLogs(todayKey);
   showToast('已清空今日紀錄', 'warn');
 }
 
@@ -177,7 +361,6 @@ function getSummaryStats() {
 function renderDashboard() {
   const stats = getSummaryStats();
 
-  // 今日平均每克蛋白成本（強調預算 × 營養 CP 值定位）
   const cpBadge = document.getElementById('radar-cp-badge');
   if (cpBadge) {
     if (stats.usedProtein > 0) {
@@ -188,7 +371,6 @@ function renderDashboard() {
     }
   }
 
-  // 1. 餐費預算進度條
   const budgetPct = Math.min((stats.usedBudget / Math.max(goals.budget, 1)) * 100, 100);
   document.getElementById('budget-used').textContent = `$${stats.usedBudget}`;
   document.getElementById('budget-goal').textContent = goals.budget;
@@ -212,7 +394,6 @@ function renderDashboard() {
     setBadgeStyle(budgetBadge, '控管良好', 'green');
   }
 
-  // 2. 蛋白質進度條
   const proteinPct = Math.min((stats.usedProtein / Math.max(goals.protein, 1)) * 100, 100);
   document.getElementById('protein-used').textContent = `${stats.usedProtein}g`;
   document.getElementById('protein-goal').textContent = goals.protein;
@@ -234,7 +415,6 @@ function renderDashboard() {
     setBadgeStyle(proteinBadge, '嚴重不足', 'red');
   }
 
-  // 3. 熱量進度條
   const calPct = Math.min((stats.usedCalories / Math.max(goals.calories, 1)) * 100, 100);
   document.getElementById('calories-used').textContent = stats.usedCalories;
   document.getElementById('calories-goal').textContent = goals.calories;
@@ -258,7 +438,6 @@ function renderDashboard() {
     setBadgeStyle(calBadge, '範圍內', 'blue');
   }
 
-  // 4. 綜合雷達提示
   const statusEl = document.getElementById('radar-status-text');
   if (stats.remainingBudget < 0) {
     statusEl.textContent = '⚠️ 今日餐費已超支，建議停止額外消費。';
@@ -269,7 +448,7 @@ function renderDashboard() {
   }
 }
 
-// ---------- 剩餘額度推薦渲染（支援規則式與 Gemini AI 推薦） ----------
+// ---------- 剩餘額度推薦渲染 ----------
 function renderRecommendationCards(summary, items, engineNote) {
   currentRecommendations = items;
   document.getElementById('recommend-summary').textContent = summary;
@@ -377,7 +556,7 @@ async function handleAIRecommend() {
   }
 }
 
-// ---------- 台灣外食快速點選（含 CP 值排序與省錢蛋白王標示） ----------
+// ---------- 台灣外食快速點選 ----------
 function renderCategoryTabs() {
   const categories = ['全部', ...new Set(foodDatabase.map((f) => f.category))];
   const tabsEl = document.getElementById('category-tabs');
@@ -405,7 +584,6 @@ function renderFoodGrid() {
     return matchCat && matchText;
   });
 
-  // 套用排序
   const sorted = [...filtered];
   if (sortMode === 'cp') {
     sorted.sort((a, b) => getCostPerProtein(a.price, a.protein) - getCostPerProtein(b.price, b.protein));
@@ -570,7 +748,7 @@ function setAIFeedback(type, message) {
   feedback.textContent = message;
 }
 
-// ---------- Phase 2：優先呼叫 Vercel /api/parse-meal，失敗自動降級 ----------
+// ---------- AI 語意解析 ----------
 async function handleAIParse(e) {
   e.preventDefault();
   const input = document.getElementById('ai-input');
@@ -600,7 +778,7 @@ async function handleAIParse(e) {
       return;
     }
 
-    data.items.forEach((item) => addMeal({ ...item, source: 'Gemini AI' }));
+    addMealsBatch(data.items.map((item) => ({ ...item, source: 'Gemini AI' })));
     const summaryList = data.items
       .map((i) => `${i.name} ($${i.price} / 蛋白${i.protein}g / ${i.calories}kcal)`)
       .join('、');
@@ -619,7 +797,7 @@ async function handleAIParse(e) {
       return;
     }
 
-    parsed.forEach((item) => addMeal({ ...item, source: '離線備援' }));
+    addMealsBatch(parsed.map((item) => ({ ...item, source: '離線備援' })));
     setAIFeedback(
       'warn',
       `AI 連線異常，已自動降級為離線規則解析並加入 ${parsed.length} 筆：${parsed.map((p) => p.name).join('、')}`
@@ -654,9 +832,9 @@ function handleSaveSettings(e) {
     protein: Math.max(20, Number(document.getElementById('input-protein-goal').value) || 100),
     calories: Math.max(800, Number(document.getElementById('input-calories-goal').value) || 2000),
   };
-  saveJSON(STORAGE_KEYS.GOALS, goals);
   closeSettingsModal();
   renderAll();
+  syncGoals();
   showToast('每日目標已更新');
 }
 
@@ -669,6 +847,9 @@ function renderAll() {
 
 function bindEvents() {
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+  document.getElementById('auth-login-btn').addEventListener('click', handleLoginClick);
+  document.getElementById('auth-logout-btn').addEventListener('click', handleLogoutClick);
+
   document.getElementById('open-settings-btn').addEventListener('click', openSettingsModal);
   document.getElementById('close-settings-btn').addEventListener('click', closeSettingsModal);
   document.getElementById('settings-form').addEventListener('submit', handleSaveSettings);
@@ -727,7 +908,7 @@ function bindEvents() {
     if (!rec) return;
 
     if (Array.isArray(rec.foods)) {
-      rec.foods.forEach((f) => addMeal({ ...f, source: '規則推薦' }));
+      addMealsBatch(rec.foods.map((f) => ({ ...f, source: '規則推薦' })));
     } else {
       addMeal({
         name: rec.title,
@@ -765,6 +946,9 @@ async function init() {
   renderCategoryTabs();
   renderFoodGrid();
   renderAll();
+
+  // 啟動 Firebase 登入狀態監聽
+  initAuthListener(handleAuthStateChange);
 }
 
 init();
